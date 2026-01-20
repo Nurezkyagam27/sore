@@ -296,28 +296,6 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
     
     st.bar_chart(prob_df.set_index("Tanaman"))
 
-def make_gradcam(image, model, layer_name="out_relu"):
-    grad_model = tf.keras.models.Model(
-        [model.inputs],
-        [model.get_layer(layer_name).output, model.output]
-    )
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(image)
-        pred_index = tf.argmax(predictions[0])
-        loss = predictions[:, pred_index]
-
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-    conv_outputs = conv_outputs[0]
-
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-    heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
-
-    return heatmap.numpy()
-
-
 # ==================== SIDEBAR NAVIGATION ====================
 with st.sidebar:
     st.image("https://img.icons8.com/color/96/000000/leaf.png", width=80)
@@ -327,7 +305,7 @@ with st.sidebar:
     # Menu navigasi
     menu = st.radio(
         "📌 Menu Navigasi",
-        ["🏠 Home", "🔍 Predict", "📚 About"],
+        ["🏠 Beranda", "🔍 Prediksi", "📚 Informasi"],
         index=0
     )
     
@@ -351,7 +329,7 @@ with st.sidebar:
     )
 
 # ==================== HOME PAGE ====================
-if menu == "🏠 Home":
+if menu == "🏠 Beranda":
     st.title("🌿 Klasifikasi Daun Tanaman Herbal Indonesia")
     st.markdown("---")
     
@@ -405,7 +383,7 @@ if menu == "🏠 Home":
         st.metric("Framework", "TensorFlow")
 
 # ==================== PREDICT PAGE ====================
-elif menu == "🔍 Predict":
+elif menu == "🔍 Prediksi":
     st.title("🔍 Prediksi Daun Tanaman Herbal")
     st.markdown("---")
     
@@ -440,23 +418,6 @@ elif menu == "🔍 Predict":
             show_prediction_result(predicted_class, confidence, all_predictions, image)
         else:
             st.info("👆 Silakan upload gambar daun untuk memulai klasifikasi")
-
-    heatmap = make_gradcam(img, model)
-
-    img_cv = cv2.cvtColor(np.array(image.resize((224, 224))), cv2.COLOR_RGB2BGR)
-    heatmap = cv2.resize(heatmap, (224, 224))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    superimposed_img = cv2.addWeighted(img_cv, 0.6, heatmap, 0.4, 0)
-
-    st.subheader("🔥 Visualisasi Fokus Model (Grad-CAM)")
-    st.image(
-        cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB),
-        use_container_width=True
-    )
-
-            
-
     
     # ===== TAB CAMERA =====
     with tab_camera:
@@ -479,7 +440,7 @@ elif menu == "🔍 Predict":
             st.info("📷 Klik tombol kamera untuk mengambil foto daun")
 
 # ==================== ABOUT PAGE ====================
-elif menu == "📚 About":
+elif menu == "📚 Informasi":
     st.title("📚 Informasi Tanaman Herbal")
     st.markdown("---")
     
@@ -554,9 +515,10 @@ st.markdown(
     """
     <div style='text-align: center; color: gray;'>
         <p>🌿 Klasifikasi Daun Tanaman Herbal dengan MobileNetV2</p>
-        <p style='font-size: 12px;'>© 2025 - Herbal Leaf Classifier</p>
+        <p style='font-size: 12px;'>© 2026 - Herbal Leaf Classifier</p>
     </div>
     """,
     unsafe_allow_html=True
 )
+
 
