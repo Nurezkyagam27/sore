@@ -339,15 +339,22 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
     st.markdown("---")
     st.subheader("🔥 Visualisasi Fokus Model (Grad-CAM)")
 
-    img_array = preprocess_image(image)
-
     try:
-        heatmap = make_gradcam(img, model, layer_name="Conv_1")
-        gradcam_img = overlay_gradcam(image, heatmap)
-        st.image(gradcam_img, caption="Area yang paling diperhatikan model", use_container_width=True)
+    heatmap = make_gradcam(img, model, layer_name="Conv_1")  # ganti kalau beda
+
+    img_cv = cv2.cvtColor(np.array(image.resize((224,224))), cv2.COLOR_RGB2BGR)
+    heatmap = cv2.resize(heatmap, (224,224))
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    superimposed_img = cv2.addWeighted(img_cv, 0.6, heatmap, 0.4, 0)
+
+    st.image(cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB), use_container_width=True)
+
     except Exception as e:
-        st.warning("Grad-CAM tidak dapat ditampilkan. Pastikan nama layer conv benar.")
-        st.text(str(e))
+    st.error("Grad-CAM tidak dapat ditampilkan. Pastikan nama layer conv benar.")
+    st.code(str(e))
+
+    
 
 
 # ==================== SIDEBAR NAVIGATION ====================
@@ -463,15 +470,20 @@ elif menu == "🔍 Prediksi":
             key="upload_file"
         )
         
-        if uploaded_file is not None:
-            image = Image.open(uploaded_file).convert("RGB")
-            
-            with st.spinner("🔄 Menganalisis gambar..."):
-                predicted_class, confidence, all_predictions = predict_image(model, image)
-            
-            show_prediction_result(predicted_class, confidence, all_predictions, image)
-        else:
-            st.info("👆 Silakan upload gambar daun untuk memulai klasifikasi")
+        if uploaded_file:
+    image = Image.open(uploaded_file).convert("RGB")
+    st.image(image, caption="Gambar Asli", use_container_width=True)
+
+    # ✅ WAJIB ADA SEBELUM PREDICT & GRADCAM
+    img = preprocess_image(image)
+
+    preds = model.predict(img)
+    idx = np.argmax(preds)
+    label = CLASS_NAMES[idx]
+    conf = preds[0][idx] * 100
+
+    st.success(f"🎯 Prediksi: {label} ({conf:.2f}%)")
+
     
     # ===== TAB CAMERA =====
     with tab_camera:
@@ -574,6 +586,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
