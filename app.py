@@ -81,43 +81,44 @@ INFO_HERBAL = {
 
 # ==================== LOAD MODEL ====================
 
+# ==================== LOAD MODEL ====================
 @st.cache_resource
 def load_model_app():
-    return tf.keras.models.load_model("daun-herbal.keras", compile=False)
-
+    model = tf.keras.models.load_model("daun-herbal.keras", compile=False)
+    return model
 
 model = load_model_app()
 
 # ==================== FUNCTIONS ====================
-
 def preprocess_image(image):
-image = image.resize((IMG_SIZE, IMG_SIZE))
-img = np.array(image)
-img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
-img = np.expand_dims(img, axis=0)
-return img
+    image = image.resize((IMG_SIZE, IMG_SIZE))
+    img = np.array(image)
+    img = tf.keras.applications.mobilenet_v2.preprocess_input(img)
+    img = np.expand_dims(img, axis=0)
+    return img
+
 
 def make_gradcam(image, model, layer_name="out_relu"):
-grad_model = tf.keras.models.Model(
-[model.inputs],
-[model.get_layer(layer_name).output, model.output]
-)
+    grad_model = tf.keras.models.Model(
+        [model.inputs],
+        [model.get_layer(layer_name).output, model.output]
+    )
 
-```
-with tf.GradientTape() as tape:
-    conv_outputs, predictions = grad_model(image)
-    pred_index = tf.argmax(predictions[0])
-    loss = predictions[:, pred_index]
+    with tf.GradientTape() as tape:
+        conv_outputs, predictions = grad_model(image)
+        pred_index = tf.argmax(predictions[0])
+        loss = predictions[:, pred_index]
 
-grads = tape.gradient(loss, conv_outputs)
-pooled_grads = tf.reduce_mean(grads, axis=(0,1,2))
-conv_outputs = conv_outputs[0]
+    grads = tape.gradient(loss, conv_outputs)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+    conv_outputs = conv_outputs[0]
 
-heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-heatmap = tf.squeeze(heatmap)
-heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
-return heatmap.numpy()
-```
+    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+    heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
+
+    return heatmap.numpy()
+
 
 # ==================== UI ====================
 
