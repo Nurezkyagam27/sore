@@ -1,6 +1,13 @@
 streamlit
-tensorflow==2.13.1
-opencv-python-headless
+tensorflow==2.20.0
 pillow
-numpy
+numpy==2.4.1
 pandas
+matplotlib
+scikit-learn    
+seaborn
+plotly
+opencv-python
+requests    
+flask
+flask-cors
