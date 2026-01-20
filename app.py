@@ -83,7 +83,8 @@ INFO_HERBAL = {
 
 @st.cache_resource
 def load_model_app():
-return tf.keras.models.load_model("daun-herbal.keras", compile=False)
+    return tf.keras.models.load_model("daun-herbal.keras", compile=False)
+
 
 model = load_model_app()
 
