@@ -4,7 +4,6 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import numpy as np
 import pandas as pd
-import cv2
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -245,44 +244,6 @@ def predict_image(model, image):
     confidence = predictions[0][predicted_class_idx] * 100
     return CLASS_NAMES[predicted_class_idx], confidence, predictions[0]
 
-
-
-def make_gradcam(image, model, layer_name):
-    grad_model = tf.keras.models.Model(
-        inputs=model.input,
-        outputs=[model.get_layer(layer_name).output, model.output]
-    )
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(image)
-        pred_index = tf.argmax(predictions[0])
-        loss = predictions[:, pred_index]
-
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-    conv_outputs = conv_outputs[0]
-    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
-
-    heatmap = tf.maximum(heatmap, 0)
-    heatmap /= tf.reduce_max(heatmap) + 1e-8
-
-    return heatmap.numpy()
-
-
-
-def overlay_gradcam(image, heatmap, alpha=0.4):
-    image = image.resize((224, 224))
-    img = np.array(image)
-
-    heatmap = cv2.resize(heatmap, (224, 224))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-
-    superimposed_img = cv2.addWeighted(img, 1-alpha, heatmap, alpha, 0)
-    return superimposed_img
-
-
 def show_prediction_result(predicted_class, confidence, all_predictions, image):
     """Menampilkan hasil prediksi"""
     col1, col2 = st.columns(2)
@@ -334,28 +295,6 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
     prob_df = prob_df.sort_values("Probabilitas (%)", ascending=True)
     
     st.bar_chart(prob_df.set_index("Tanaman"))
-
-        # ================= GRADCAM =================
-    st.markdown("---")
-    st.subheader("🔥 Visualisasi Fokus Model (Grad-CAM)")
-
-    try:
-    heatmap = make_gradcam(img, model, layer_name="Conv_1")  # ganti kalau beda
-
-    img_cv = cv2.cvtColor(np.array(image.resize((224,224))), cv2.COLOR_RGB2BGR)
-    heatmap = cv2.resize(heatmap, (224,224))
-    heatmap = np.uint8(255 * heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    superimposed_img = cv2.addWeighted(img_cv, 0.6, heatmap, 0.4, 0)
-
-    st.image(cv2.cvtColor(superimposed_img, cv2.COLOR_BGR2RGB), use_container_width=True)
-
-    except Exception as e:
-    st.error("Grad-CAM tidak dapat ditampilkan. Pastikan nama layer conv benar.")
-    st.code(str(e))
-
-    
-
 
 # ==================== SIDEBAR NAVIGATION ====================
 with st.sidebar:
@@ -470,20 +409,15 @@ elif menu == "🔍 Prediksi":
             key="upload_file"
         )
         
-        if uploaded_file:
-    image = Image.open(uploaded_file).convert("RGB")
-    st.image(image, caption="Gambar Asli", use_container_width=True)
-
-    # ✅ WAJIB ADA SEBELUM PREDICT & GRADCAM
-    img = preprocess_image(image)
-
-    preds = model.predict(img)
-    idx = np.argmax(preds)
-    label = CLASS_NAMES[idx]
-    conf = preds[0][idx] * 100
-
-    st.success(f"🎯 Prediksi: {label} ({conf:.2f}%)")
-
+        if uploaded_file is not None:
+            image = Image.open(uploaded_file).convert("RGB")
+            
+            with st.spinner("🔄 Menganalisis gambar..."):
+                predicted_class, confidence, all_predictions = predict_image(model, image)
+            
+            show_prediction_result(predicted_class, confidence, all_predictions, image)
+        else:
+            st.info("👆 Silakan upload gambar daun untuk memulai klasifikasi")
     
     # ===== TAB CAMERA =====
     with tab_camera:
@@ -586,8 +520,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
-
-
 
 
