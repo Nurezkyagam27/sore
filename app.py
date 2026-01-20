@@ -283,32 +283,6 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
         st.subheader("📝 Cara Penggunaan")
         for cara in info["cara_penggunaan"]:
             st.markdown(cara)
-    def make_gradcam(img_array, model, layer_name="out_relu"):
-    grad_model = tf.keras.models.Model(
-        [model.inputs],
-        [model.get_layer(layer_name).output, model.output]
-    )
-
-    with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_array)
-        class_idx = tf.argmax(predictions[0])
-        loss = predictions[:, class_idx]
-
-    grads = tape.gradient(loss, conv_outputs)
-    pooled_grads = tf.reduce_mean(grads, axis=(0,1,2))
-    conv_outputs = conv_outputs[0]
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
-    heatmap = tf.maximum(heatmap,0) / tf.reduce_max(heatmap)
-    return heatmap.numpy()
-
-def overlay_gradcam(image, heatmap):
-    img = cv2.cvtColor(np.array(image.resize((224,224))), cv2.COLOR_RGB2BGR)
-    heatmap = cv2.resize(heatmap,(224,224))
-    heatmap = np.uint8(255*heatmap)
-    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
-    superimposed = cv2.addWeighted(img,0.6,heatmap,0.4,0)
-    return cv2.cvtColor(superimposed, cv2.COLOR_BGR2RGB)
     
     # Tampilkan probabilitas semua kelas
     st.markdown("---")
@@ -321,14 +295,6 @@ def overlay_gradcam(image, heatmap):
     prob_df = prob_df.sort_values("Probabilitas (%)", ascending=True)
     
     st.bar_chart(prob_df.set_index("Tanaman"))
-    
-    st.markdown("---")
-    st.subheader("🔥 Visualisasi Fokus Model (Grad-CAM)")
-    heatmap = make_gradcam(img_array, model)
-    cam_image = overlay_gradcam(image, heatmap)
-    st.image(cam_image, use_container_width=True)
-
-
 
 # ==================== SIDEBAR NAVIGATION ====================
 with st.sidebar:
@@ -452,8 +418,6 @@ elif menu == "🔍 Prediksi":
             show_prediction_result(predicted_class, confidence, all_predictions, image)
         else:
             st.info("👆 Silakan upload gambar daun untuk memulai klasifikasi")
-
-    
     
     # ===== TAB CAMERA =====
     with tab_camera:
@@ -474,8 +438,6 @@ elif menu == "🔍 Prediksi":
             show_prediction_result(predicted_class, confidence, all_predictions, image)
         else:
             st.info("📷 Klik tombol kamera untuk mengambil foto daun")
-
-
 
 # ==================== ABOUT PAGE ====================
 elif menu == "📚 Informasi":
@@ -558,6 +520,5 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
-
 
 
