@@ -4,6 +4,7 @@ from tensorflow.keras.models import load_model
 from PIL import Image
 import numpy as np
 import pandas as pd
+import cv2
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -244,6 +245,42 @@ def predict_image(model, image):
     confidence = predictions[0][predicted_class_idx] * 100
     return CLASS_NAMES[predicted_class_idx], confidence, predictions[0]
 
+
+
+def make_gradcam_heatmap(img_array, model, last_conv_layer_name="out_relu"):
+    grad_model = tf.keras.models.Model(
+        [model.inputs],
+        [model.get_layer(last_conv_layer_name).output, model.output]
+    )
+
+    with tf.GradientTape() as tape:
+        conv_outputs, predictions = grad_model(img_array)
+        pred_index = tf.argmax(predictions[0])
+        loss = predictions[:, pred_index]
+
+    grads = tape.gradient(loss, conv_outputs)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
+
+    conv_outputs = conv_outputs[0]
+    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
+    heatmap = tf.squeeze(heatmap)
+
+    heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
+    return heatmap.numpy()
+
+
+def overlay_gradcam(image, heatmap, alpha=0.4):
+    image = image.resize((224, 224))
+    img = np.array(image)
+
+    heatmap = cv2.resize(heatmap, (224, 224))
+    heatmap = np.uint8(255 * heatmap)
+    heatmap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+
+    superimposed_img = cv2.addWeighted(img, 1-alpha, heatmap, alpha, 0)
+    return superimposed_img
+
+
 def show_prediction_result(predicted_class, confidence, all_predictions, image):
     """Menampilkan hasil prediksi"""
     col1, col2 = st.columns(2)
@@ -295,6 +332,21 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
     prob_df = prob_df.sort_values("Probabilitas (%)", ascending=True)
     
     st.bar_chart(prob_df.set_index("Tanaman"))
+
+        # ================= GRADCAM =================
+    st.markdown("---")
+    st.subheader("🔥 Visualisasi Fokus Model (Grad-CAM)")
+
+    img_array = preprocess_image(image)
+
+    try:
+        heatmap = make_gradcam_heatmap(img_array, model)
+        gradcam_img = overlay_gradcam(image, heatmap)
+        st.image(gradcam_img, caption="Area yang paling diperhatikan model", use_container_width=True)
+    except Exception as e:
+        st.warning("Grad-CAM tidak dapat ditampilkan. Pastikan nama layer conv benar.")
+        st.text(str(e))
+
 
 # ==================== SIDEBAR NAVIGATION ====================
 with st.sidebar:
@@ -520,5 +572,6 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
