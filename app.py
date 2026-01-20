@@ -247,14 +247,14 @@ def predict_image(model, image):
 
 
 
-def make_gradcam_heatmap(img_array, model, last_conv_layer_name="out_relu"):
+def make_gradcam(image, model, layer_name):
     grad_model = tf.keras.models.Model(
-        [model.inputs],
-        [model.get_layer(last_conv_layer_name).output, model.output]
+        inputs=model.input,
+        outputs=[model.get_layer(layer_name).output, model.output]
     )
 
     with tf.GradientTape() as tape:
-        conv_outputs, predictions = grad_model(img_array)
+        conv_outputs, predictions = grad_model(image)
         pred_index = tf.argmax(predictions[0])
         loss = predictions[:, pred_index]
 
@@ -262,11 +262,13 @@ def make_gradcam_heatmap(img_array, model, last_conv_layer_name="out_relu"):
     pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
 
     conv_outputs = conv_outputs[0]
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]
-    heatmap = tf.squeeze(heatmap)
+    heatmap = tf.reduce_sum(conv_outputs * pooled_grads, axis=-1)
 
-    heatmap = tf.maximum(heatmap, 0) / tf.reduce_max(heatmap)
+    heatmap = tf.maximum(heatmap, 0)
+    heatmap /= tf.reduce_max(heatmap) + 1e-8
+
     return heatmap.numpy()
+
 
 
 def overlay_gradcam(image, heatmap, alpha=0.4):
@@ -340,7 +342,7 @@ def show_prediction_result(predicted_class, confidence, all_predictions, image):
     img_array = preprocess_image(image)
 
     try:
-        heatmap = make_gradcam_heatmap(img_array, model)
+        heatmap = make_gradcam(img, model, layer_name="Conv_1")
         gradcam_img = overlay_gradcam(image, heatmap)
         st.image(gradcam_img, caption="Area yang paling diperhatikan model", use_container_width=True)
     except Exception as e:
@@ -572,6 +574,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 
 
